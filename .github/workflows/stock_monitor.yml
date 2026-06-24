@@ -1,0 +1,42 @@
+name: Stock Monitor
+
+on:
+  schedule:
+    # 台股時間：週一到週五 09:00-13:30 CST = UTC 01:00-05:30
+    - cron: '*/5 1-5 * * 1-5'
+    # 美股時間：週一到週五 09:30-16:00 EST = UTC 14:30-21:00
+    - cron: '*/5 13-21 * * 1-5'
+  workflow_dispatch:  # 允許手動觸發測試
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Get today's date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Restore notification state (same-day dedup)
+        uses: actions/cache@v4
+        with:
+          path: notified_state.json
+          key: notified-${{ steps.date.outputs.date }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run stock monitor
+        env:
+          GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          GMAIL_RECEIVER: ${{ secrets.GMAIL_RECEIVER }}
+        run: python stock_monitor.py
